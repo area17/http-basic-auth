@@ -3,17 +3,19 @@
 namespace A17\HttpBasicAuth\Services;
 
 use Closure;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Routing\ResponseFactory;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Route;
 
 class HttpBasicAuth
 {
     protected array $config = [];
 
-    public function checkAuth(Request $request): Response|RedirectResponse|null
+    public function checkAuth(Request $request): Response|RedirectResponse|JsonResponse|Application|ResponseFactory|null
     {
         if ($this->disabled()) {
             return null;
@@ -31,7 +33,7 @@ class HttpBasicAuth
         return $this->abort($request);
     }
 
-    public function handle($request, Closure $next, $username = null, $password = null)
+    public function handle(Request $request, Closure $next, string $username = null, string $password = null): mixed
     {
         return $next($request);
     }
@@ -41,13 +43,13 @@ class HttpBasicAuth
         return !($this->config['enabled'] ?? false);
     }
 
-    public function userAuthenticated(Request $request)
+    public function userAuthenticated(Request $request): bool
     {
         return $request->getUser() === ($this->config['username'] ?? 'missing') &&
             $request->getPassword() === ($this->config['password'] ?? 'missing');
     }
 
-    public function abort(Request $request)
+    public function abort(Request $request): Response|JsonResponse|Application|ResponseFactory
     {
         $header = ['WWW-Authenticate' => 'Basic realm="Basic Auth", charset="UTF-8"'];
 
@@ -66,8 +68,7 @@ class HttpBasicAuth
     {
         $paths = $this->config['routes']['ignore']['paths'] ?? [];
 
-        foreach ($paths as $path)
-        {
+        foreach ($paths as $path) {
             if (Str::startsWith($path, '/')) {
                 $path = Str::after($path, '/');
             }
