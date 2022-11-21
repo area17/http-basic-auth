@@ -15,18 +15,18 @@ class HttpBasicAuth
 {
     protected array $config = [];
 
-    public function checkAuth(Request $request): Response|RedirectResponse|JsonResponse|Application|ResponseFactory|null
+    public function checkAuth(Request $request, $options = []): Response|RedirectResponse|JsonResponse|Application|ResponseFactory|null
     {
-        if ($this->disabled()) {
+        if ($this->disabled($options)) {
             return null;
         }
 
         /** TODO: add ignored routes to config */
-        if ($this->routeShouldBeIgnored($request)) {
+        if ($this->routeShouldBeIgnored($request, $options)) {
             return null;
         }
 
-        if ($this->userAuthenticated($request)) {
+        if ($this->userAuthenticated($request, $options)) {
             return null;
         }
 
@@ -38,15 +38,41 @@ class HttpBasicAuth
         return $next($request);
     }
 
-    public function disabled(): bool
+    public function disabled($options = []): bool
     {
+        if (blank($options['username'] ?? null) || blank($options['password'] ?? null)) {
+            return true;
+        }
+
         return !($this->config['enabled'] ?? false);
     }
 
-    public function userAuthenticated(Request $request): bool
+    public function userAuthenticated(Request $request, $options = []): bool
     {
-        return $request->getUser() === ($this->config['username'] ?? 'missing') &&
-            $request->getPassword() === ($this->config['password'] ?? 'missing');
+        return $this->authenticateWithConfig($request, $options) || $this->authenticateWithDatabase($request, $options);
+    }
+
+    public function authenticateWithConfig($request, $options)
+    {
+        return $request->getUser() === ($options['username'] ?? $this->config['username'] ?? 'missing') &&
+               $request->getPassword() === ($options['password'] ?? $this->config['password'] ?? 'missing');
+    }
+
+    public function authenticateWithDatabase($request, $options)
+    {
+        foreach ($options['guards'] ?? [] as $guard) {
+            $usernameColumn = $guard['username-column'] ?? 'email';
+
+            $succeeded = auth($guard)->attempt(
+                [$usernameColumn => $request->getUser(), 'password' => $request->getPassword()],
+            );
+
+            if ($succeeded) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function abort(Request $request): Response|JsonResponse|Application|ResponseFactory
@@ -64,9 +90,9 @@ class HttpBasicAuth
             : response('401 Authorization Required', 401, $header);
     }
 
-    public function routeShouldBeIgnored(Request $request): bool
+    public function routeShouldBeIgnored(Request $request, $options = []): bool
     {
-        $paths = $this->config['routes']['ignore']['paths'] ?? [];
+        $paths = $options['routes']['ignore']['paths'] ?? $this->config['routes']['ignore']['paths'] ?? [];
 
         foreach ($paths as $path) {
             if (Str::startsWith($path, '/')) {
