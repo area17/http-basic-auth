@@ -15,8 +15,10 @@ class HttpBasicAuth
 {
     protected array $config = [];
 
-    public function checkAuth(Request $request, $options = []): Response|RedirectResponse|JsonResponse|Application|ResponseFactory|null
-    {
+    public function checkAuth(
+        Request $request,
+        $options = [],
+    ): Response|RedirectResponse|JsonResponse|Application|ResponseFactory|null {
         if ($this->disabled($options)) {
             return null;
         }
@@ -54,8 +56,8 @@ class HttpBasicAuth
 
     public function authenticateWithConfig($request, $options)
     {
-        return $request->getUser() === ($options['username'] ?? $this->config['username'] ?? 'missing') &&
-               $request->getPassword() === ($options['password'] ?? $this->config['password'] ?? 'missing');
+        return $request->getUser() === ($options['username'] ?? ($this->config['username'] ?? 'missing')) &&
+            $request->getPassword() === ($options['password'] ?? ($this->config['password'] ?? 'missing'));
     }
 
     public function authenticateWithDatabase($request, $options)
@@ -63,9 +65,10 @@ class HttpBasicAuth
         foreach ($options['guards'] ?? [] as $guard) {
             $usernameColumn = $guard['username-column'] ?? 'email';
 
-            $succeeded = auth($guard)->attempt(
-                [$usernameColumn => $request->getUser(), 'password' => $request->getPassword()],
-            );
+            $succeeded = auth($guard)->attempt([
+                $usernameColumn => $request->getUser(),
+                'password' => $request->getPassword(),
+            ]);
 
             if ($succeeded) {
                 return true;
@@ -92,7 +95,7 @@ class HttpBasicAuth
 
     public function routeShouldBeIgnored(Request $request, $options = []): bool
     {
-        $paths = $options['routes']['ignore']['paths'] ?? $this->config['routes']['ignore']['paths'] ?? [];
+        $paths = $options['routes']['ignore']['paths'] ?? ($this->config['routes']['ignore']['paths'] ?? []);
 
         foreach ($paths as $path) {
             if (Str::startsWith($path, '/')) {
