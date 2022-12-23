@@ -11,7 +11,7 @@
         "i10n"
     ],
     "homepage": "https://github.com/area17/http-basic-auth",
-    "license": "MIT",
+    "license": "Apache-2.0",
     "authors": [
         {
             "name": "AREA 17",
